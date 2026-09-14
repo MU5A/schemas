@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: ResourceAccess
+  description: >-
+    OpenAPI schema for the resource share/revoke contract in Meshery Cloud.
+  version: v1beta3
+  contact:
+    name: Meshery Maintainers
+    email: maintainers@meshery.io
+    url: https://meshery.io
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+security:
+  - jwt: []
+
+tags:
+  - name: resource_access
+    description: Operations for sharing and revoking access to a resource
+
+paths:
+  /api/resources/{resourceType}/{resourceId}/share:
+    post:
+      x-internal: ["cloud"]
+      tags:
+        - resource_access
+      operationId: shareResource
+      summary: Grant or revoke access to a resource
+      description: >-
+        Grants access to the actors listed in grantAccess, revokes access
+        from the actors listed in revokeAccess, and optionally notifies
+        the affected actors. Both lists are carried on a single request so
+        a caller can grant and revoke in the same call; either list may be
+        empty, but the field itself is always present, matching the only
+        known-correct client (see grantAccess/revokeAccess below).
+      parameters:
+        - $ref: "#/components/parameters/resourceType"
+        - $ref: "#/components/parameters/resourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResourceAccessMappingPayload"
+      responses:
+        "200":
+          description: Access mapping updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+
+components:
+  securitySchemes:
+    jwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    "400":
+      $ref: "../../v1beta2/core/api.yml#/components/responses/400"
+    "401":
+      $ref: "../../v1beta2/core/api.yml#/components/responses/401"
+    "404":
+      $ref: "../../v1beta2/core/api.yml#/components/responses/404"
+    "500":
+      $ref: "../../v1beta2/core/api.yml#/components/responses/500"
+
+  parameters:
+    resourceType:
+      name: resourceType
+      in: path
+      required: true
+      description: >-
+        Kind of resource being shared. Known values reported against the
+        server route as of this writing: pattern (the wire name for a
+        design), filter, and view. This is not modelled as an enum: the
+        server route accepts the segment as a plain string, and the full
+        set of resource kinds it recognizes has not been independently
+        confirmed against the server source, only against the one
+        confirmed-correct client (layer5io/sistent's ShareModal, which
+        maps its own dataName prop straight onto this segment, translating
+        only design to pattern).
+      schema:
+        type: string
+    resourceId:
+      name: resourceId
+      in: path
+      required: true
+      description: Identifier of the resource being shared.
+      schema:
+        $ref: "../../v1beta2/core/api.yml#/components/schemas/Uuid"
+
+  schemas:
+    Actor:
+      type: object
+      additionalProperties: false
+      description: >-
+        One grant or revoke target in a ResourceAccessMappingPayload.
+      required:
+        - actorId
+        - actorType
+      properties:
+        actorId:
+          $ref: "../../v1beta2/core/api.yml#/components/schemas/Uuid"
+          description: Identifier of the actor, a user ID for actorType user.
+          x-go-name: ActorId
+          x-oapi-codegen-extra-tags:
+            json: "actorId"
+        actorType:
+          type: string
+          description: >-
+            Kind of actor. Every known client sends user; the server field
+            is a plain string with no enforced enum, so this is modelled as
+            an open string rather than an enum of one value that would
+            reject a legitimate future actor type (for example a team or a
+            service account) before the server itself does.
+          example: user
+          x-go-name: ActorType
+          x-oapi-codegen-extra-tags:
+            json: "actorType"
+
+    ResourceAccessMappingPayload:
+      type: object
+      additionalProperties: false
+      description: >-
+        Request body for POST /api/resources/{resourceType}/{resourceId}/share.
+        Every field is required because the only confirmed-correct client
+        always sends all three; a request missing one has not been verified
+        against the server's actual decode behavior for a missing key, only
+        for a differently-named one, which the server accepts and silently
+        drops (see the parent issue this construct was added for).
+      required:
+        - grantAccess
+        - revokeAccess
+        - notifyUsers
+      properties:
+        grantAccess:
+          type: array
+          description: Actors to grant access to. May be empty.
+          items:
+            $ref: "#/components/schemas/Actor"
+          x-go-name: GrantAccess
+          x-oapi-codegen-extra-tags:
+            json: "grantAccess"
+        revokeAccess:
+          type: array
+          description: Actors to revoke access from. May be empty.
+          items:
+            $ref: "#/components/schemas/Actor"
+          x-go-name: RevokeAccess
+          x-oapi-codegen-extra-tags:
+            json: "revokeAccess"
+        notifyUsers:
+          type: boolean
+          description: Whether to notify the affected actors of the change.
+          x-go-name: NotifyUsers
+          x-oapi-codegen-extra-tags:
+            json: "notifyUsers"

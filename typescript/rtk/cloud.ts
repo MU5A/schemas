@@ -27,6 +27,7 @@ export const addTagTypes = [
   "PatternResource_patternResources",
   "Performance_Profile_performance",
   "Plan_Plans",
+  "ResourceAccess_resource_access",
   "Subscription_Subscriptions",
   "Subscription_Payment Processors",
   "token_tokens",
@@ -1498,6 +1499,14 @@ const injectedRtkApi = api
           },
         }),
         providesTags: ["Plan_Plans"],
+      }),
+      shareResource: build.mutation<ShareResourceApiResponse, ShareResourceApiArg>({
+        query: (queryArg) => ({
+          url: `/api/resources/${queryArg.resourceType}/${queryArg.resourceId}/share`,
+          method: "POST",
+          body: queryArg.body,
+        }),
+        invalidatesTags: ["ResourceAccess_resource_access"],
       }),
       getSubscriptions: build.query<GetSubscriptionsApiResponse, GetSubscriptionsApiArg>({
         query: (queryArg) => ({
@@ -14125,6 +14134,33 @@ export type GetPlansApiArg = {
   /** Get responses by pagesize */
   pagesize?: number;
 };
+export type ShareResourceApiResponse = /** status 200 Access mapping updated */ {
+  [key: string]: any;
+};
+export type ShareResourceApiArg = {
+  /** Kind of resource being shared. Known values reported against the server route as of this writing: pattern (the wire name for a design), filter, and view. This is not modelled as an enum: the server route accepts the segment as a plain string, and the full set of resource kinds it recognizes has not been independently confirmed against the server source, only against the one confirmed-correct client (layer5io/sistent's ShareModal, which maps its own dataName prop straight onto this segment, translating only design to pattern). */
+  resourceType: string;
+  /** Identifier of the resource being shared. */
+  resourceId: string;
+  body: {
+    /** Actors to grant access to. May be empty. */
+    grantAccess: {
+      /** A Universally Unique Identifier used to uniquely identify entities in Meshery. The UUID core definition is used across different schemas. */
+      actorId: string;
+      /** Kind of actor. Every known client sends user; the server field is a plain string with no enforced enum, so this is modelled as an open string rather than an enum of one value that would reject a legitimate future actor type (for example a team or a service account) before the server itself does. */
+      actorType: string;
+    }[];
+    /** Actors to revoke access from. May be empty. */
+    revokeAccess: {
+      /** A Universally Unique Identifier used to uniquely identify entities in Meshery. The UUID core definition is used across different schemas. */
+      actorId: string;
+      /** Kind of actor. Every known client sends user; the server field is a plain string with no enforced enum, so this is modelled as an open string rather than an enum of one value that would reject a legitimate future actor type (for example a team or a service account) before the server itself does. */
+      actorType: string;
+    }[];
+    /** Whether to notify the affected actors of the change. */
+    notifyUsers: boolean;
+  };
+};
 export type GetSubscriptionsApiResponse = /** status 200 Subscriptions response */ {
   /** Current page number of the result set. */
   page: number;
@@ -16472,6 +16508,7 @@ export const {
   useLazyGetPerformanceResultsQuery,
   useGetPlansQuery,
   useLazyGetPlansQuery,
+  useShareResourceMutation,
   useGetSubscriptionsQuery,
   useLazyGetSubscriptionsQuery,
   useUpsertSubscriptionMutation,
