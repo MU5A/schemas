@@ -16,6 +16,8 @@ export interface paths {
         /**
          * Grant or revoke access to a resource
          * @description Grants access to the actors listed in grantAccess, revokes access from the actors listed in revokeAccess, and optionally notifies the affected actors. Both lists are carried on a single request so a caller can grant and revoke in the same call; either list may be empty, but the field itself is always present, matching the only known-correct client (see grantAccess/revokeAccess below).
+         *
+         *     This one operation spans three different resource types, chosen at call time by resourceType, so the generated RTK Query client cannot auto-invalidate the affected design, filter, or view list cache the way a single-resource-type operation would: RTK Query cache tags are static per operation, derived from this operation's own OpenAPI tag, not from a runtime path parameter. A caller of the generated useShareResourceMutation hook must invalidate or refetch the relevant resource list itself after a successful share; the mutation alone will not refresh it.
          */
         post: operations["shareResource"];
         delete?: never;
